@@ -6,6 +6,37 @@ import { ably, MESSAGING_CHANNELS, MESSAGING_EVENTS } from '@/lib/ably';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+export interface SharedContent {
+  id: string;
+  content_type: 'food' | 'restaurant';
+  content_id: string;
+  shared_by: string;
+  created_at: string;
+  food?: {
+    id: string;
+    name: string;
+    description?: string;
+    image_url?: string;
+    price?: number;
+    rating?: number;
+    restaurant?: {
+      id: string;
+      name: string;
+      location?: string;
+    };
+  };
+  restaurant?: {
+    id: string;
+    name: string;
+    description?: string;
+    image_url?: string;
+    cuisine_type?: string;
+    rating?: number;
+    location?: string;
+    price_range?: string;
+  };
+}
+
 export interface Message {
   id: string;
   content: string;
@@ -16,6 +47,8 @@ export interface Message {
   is_deleted: boolean;
   sender_id: string;
   conversation_id: string;
+  shared_content_id?: string;
+  shared_content?: SharedContent;
   profiles: {
     user_id: string;
     username: string;

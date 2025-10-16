@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
+import SharedContent from "@/components/shared-content";
 import { 
   Send, 
   Phone, 
@@ -314,6 +315,28 @@ const ConversationPage = () => {
                     : "bg-muted text-foreground"
                 }`}>
                   <p className="text-sm">{message.content}</p>
+                  
+                  {/* Render shared content if message type is shared_content */}
+                  {message.message_type === 'shared_content' && message.shared_content && (
+                    <div className="mt-2">
+                      <SharedContent
+                        type={message.shared_content.content_type as 'restaurant' | 'food'}
+                        item={{
+                           id: message.shared_content.content_id,
+                           name: message.shared_content.content_data?.name || 'Unknown',
+                           image: message.shared_content.content_data?.images?.[0] || message.shared_content.content_data?.cover_images?.[0] || '/placeholder.svg',
+                           description: message.shared_content.content_data?.description,
+                           rating: message.shared_content.content_data?.rating,
+                           price: message.shared_content.content_data?.price?.toString(),
+                           location: message.shared_content.content_data?.address || message.shared_content.content_data?.restaurant_name,
+                           cuisine: message.shared_content.content_data?.cuisine || message.shared_content.content_data?.restaurant_cuisine,
+                         }}
+                        sharedBy={message.shared_content.sharer_info?.full_name || message.shared_content.sharer_info?.username}
+                        message={message.shared_content.share_message}
+                      />
+                    </div>
+                  )}
+                  
                   <div className={`flex items-center justify-between mt-1 text-xs ${
                     message.sender_id === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"
                   }`}>

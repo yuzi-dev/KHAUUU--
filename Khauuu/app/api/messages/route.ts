@@ -50,32 +50,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get messages for the conversation
+    // Get messages for the conversation using the dedicated function that includes shared content
     const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        content,
-        message_type,
-        created_at,
-        updated_at,
-        is_edited,
-        is_deleted,
-        sender_id,
-        conversation_id,
-        delivered_at,
-        read_at,
-        profiles!messages_sender_id_fkey (
-          user_id,
-          username,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('conversation_id', conversationId)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .rpc('get_messages_with_shared_content', {
+        p_conversation_id: conversationId
+      });
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError);
