@@ -12,6 +12,7 @@ import ProfileAvatar from "@/features/profile/components/profile-avatar";
 import NotificationModal from '@/components/modals/notification-modal';
 import { supabase } from '@/lib/supabase';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -22,6 +23,9 @@ const Navbar = () => {
 
   // Use real-time notifications hook
   const { unreadCount } = useNotifications();
+  
+  // Use unread messages hook
+  const { totalUnreadCount } = useUnreadMessages();
 
   // Calculate total notification count (follow requests + unread notifications)
   const totalNotificationCount = followRequestCount + unreadCount;
@@ -103,9 +107,15 @@ const Navbar = () => {
               variant="outline" 
               size="sm"
               onClick={() => router.push('/messages')}
+              className="relative"
             >
               <MessageCircle className="w-4 h-4" />
               Messages
+              {totalUnreadCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-2 -right-2 text-xs w-5 h-5 p-0 flex items-center justify-center">
+                  {totalUnreadCount}
+                </Badge>
+              )}
             </Button>
             
             {/* Authentication Section */}
@@ -176,9 +186,15 @@ const Navbar = () => {
                   variant="outline" 
                   size="sm"
                   onClick={() => router.push('/messages')}
+                  className="relative justify-start"
                 >
                   <MessageCircle className="w-4 h-4" />
                   Messages
+                  {totalUnreadCount > 0 && (
+                    <Badge variant="destructive" className="ml-2 text-xs">
+                      {totalUnreadCount}
+                    </Badge>
+                  )}
                 </Button>
                 
                 {/* Authentication Section */}

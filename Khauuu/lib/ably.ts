@@ -25,4 +25,22 @@ export const NOTIFICATION_EVENTS = {
   UNREAD_COUNT_UPDATED: 'unread-count-updated',
 } as const;
 
+// Messaging channel names
+export const MESSAGING_CHANNELS = {
+  CONVERSATION: (conversationId: string) => `conversation:${conversationId}`,
+  USER_MESSAGES: (userId: string) => `messages:${userId}`,
+} as const;
+
+// Messaging event types
+export const MESSAGING_EVENTS = {
+  NEW_MESSAGE: 'new-message',
+  MESSAGE_UPDATED: 'message-updated',
+  MESSAGE_DELETED: 'message-deleted',
+  TYPING_START: 'typing-start',
+  TYPING_STOP: 'typing-stop',
+  MESSAGE_READ: 'message-read',
+  CONVERSATION_UPDATED: 'conversation-updated',
+} as const;
+
 export type NotificationEvent = typeof NOTIFICATION_EVENTS[keyof typeof NOTIFICATION_EVENTS];
+export type MessagingEvent = typeof MESSAGING_EVENTS[keyof typeof MESSAGING_EVENTS];
