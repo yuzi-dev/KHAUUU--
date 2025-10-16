@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Real-time Notifications</title>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+</head>
+<body>
+    <h1>Real-time Notification Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+    
+    <script>
+        // Test Ably connection
+        const ably = new Ably.Realtime('YOUR_ABLY_KEY_HERE');
+        const channel = ably.channels.get('notifications:test-user');
+        
+        ably.connection.on('connected', () => {
+            document.getElementById('status').textContent = 'Connected to Ably!';
+        });
+        
+        ably.connection.on('failed', (error) => {
+            document.getElementById('status').textContent = 'Connection failed: ' + error.message;
+        });
+        
+        channel.subscribe('new-notification', (message) => {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += '<p>Received: ' + JSON.stringify(message.data) + '</p>';
+        });
+        
+        // Test publishing
+        setTimeout(() => {
+            channel.publish('new-notification', { test: 'Hello from test!' });
+        }, 2000);
+    </script>
+</body>
+</html>
