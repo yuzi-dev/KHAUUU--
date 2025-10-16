@@ -94,7 +94,9 @@ export const useMessages = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.messages || []);
+        setMessages(data.messages?.sort((a: Message, b: Message) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        ) || []);
         
         // Mark messages as read
         await markAsRead(conversationId);
@@ -105,6 +107,23 @@ export const useMessages = () => {
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  // Update conversations locally without triggering loading state
+  const updateConversationsLocally = useCallback((messageOrData: any) => {
+    setConversations(prev => {
+      return prev.map(conv => {
+        if (conv.id === messageOrData.conversation_id) {
+          return {
+            ...conv,
+            last_message_at: messageOrData.created_at || new Date().toISOString(),
+            last_message: messageOrData,
+            unread_count: conv.unread_count + (messageOrData.sender_id !== user?.id ? 1 : 0)
+          };
+        }
+        return conv;
+      });
+    });
   }, [user]);
 
   // Send a message
@@ -138,11 +157,25 @@ export const useMessages = () => {
           if (prev.some(m => m.id === data.message.id)) {
             return prev;
           }
-          return [data.message, ...prev];
+          return [...prev, data.message].sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
         });
         
-        // Update conversation list
-        await fetchConversations();
+        // Update conversation list without refetching messages
+        setConversations(prev => {
+          return prev.map(conv => {
+            if (conv.id === activeConversation) {
+              return {
+                ...conv,
+                last_message: data.message,
+                last_message_at: data.message.created_at,
+                updated_at: data.message.created_at
+              };
+            }
+            return conv;
+          });
+        });
         
         return data.message;
       } else {
@@ -222,20 +255,23 @@ export const useMessages = () => {
       // Add to messages if it's for the active conversation
       if (messageData.message.conversation_id === activeConversation) {
         setMessages(prev => {
-          // Check if message already exists
-          if (prev.some(m => m.id === messageData.message.id)) {
-            return prev;
-          }
-          return [messageData.message, ...prev];
-        });
+        // Check if message already exists
+        if (prev.some(m => m.id === messageData.message.id)) {
+          return prev;
+        }
+        return [...prev, messageData.message].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
       }
       
-      // Update conversations list
-      fetchConversations();
+      // Update conversations list without triggering loading state
+      updateConversationsLocally(messageData.message);
     };
 
     const handleConversationUpdate = (message: any) => {
-      fetchConversations();
+      // Update conversations list without triggering loading state
+      updateConversationsLocally(message.data);
     };
 
     userChannel.subscribe(MESSAGING_EVENTS.NEW_MESSAGE, handleNewMessage);
@@ -260,7 +296,9 @@ export const useMessages = () => {
         if (prev.some(m => m.id === messageData.message.id)) {
           return prev;
         }
-        return [messageData.message, ...prev];
+        return [...prev, messageData.message].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       });
     };
 
@@ -291,32 +329,8 @@ export const useMessages = () => {
     }
   }, [activeConversation, fetchMessages]);
 
-  // Prevent unnecessary refetching when browser window loses/gains focus
-  useEffect(() => {
-    let isVisible = true;
-    
-    const handleVisibilityChange = () => {
-      const wasVisible = isVisible;
-      isVisible = !document.hidden;
-      
-      // Only refetch if we're coming back to a visible state and have an active conversation
-      // This prevents the reload issue when switching browser windows
-      if (!wasVisible && isVisible && activeConversation) {
-        // Small delay to prevent rapid refetching
-        setTimeout(() => {
-          if (isVisible && activeConversation) {
-            fetchMessages(activeConversation);
-          }
-        }, 500);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [activeConversation, fetchMessages]);
+  // Remove automatic refetching on visibility change to prevent unwanted refreshes
+  // This was causing the app to refresh when switching between applications
 
   return {
     conversations,
