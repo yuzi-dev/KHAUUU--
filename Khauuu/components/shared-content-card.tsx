@@ -22,7 +22,7 @@ export const SharedContentCard = ({
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const isFood = sharedContent.content_type === 'food';
-  const content = isFood ? sharedContent.food : sharedContent.restaurant;
+  const content = sharedContent.content_data;
 
   if (!content) {
     return (
@@ -37,34 +37,32 @@ export const SharedContentCard = ({
   }
 
   const handleShare = () => {
-    if (isFood && sharedContent.food) {
-      setShareModalOpen(true);
-    } else if (!isFood && sharedContent.restaurant) {
+    if (sharedContent.content_data) {
       setShareModalOpen(true);
     }
   };
 
   const getShareItem = () => {
-    if (isFood && sharedContent.food) {
+    if (isFood && sharedContent.content_data) {
       return {
-        id: sharedContent.food.id,
+        id: sharedContent.content_data.id,
         type: 'food' as const,
-        name: sharedContent.food.name,
-        description: sharedContent.food.description || '',
-        image: sharedContent.food.image_url || '/placeholder.svg',
-        rating: sharedContent.food.rating,
-        price: sharedContent.food.price?.toString(),
-        location: sharedContent.food.restaurant?.location
+        name: sharedContent.content_data.name,
+        description: sharedContent.content_data.description || '',
+        image: sharedContent.content_data.image_url || sharedContent.content_data.images?.[0] || '/placeholder.svg',
+        rating: sharedContent.content_data.rating,
+        price: sharedContent.content_data.price?.toString(),
+        location: sharedContent.content_data.restaurant_name
       };
-    } else if (!isFood && sharedContent.restaurant) {
+    } else if (!isFood && sharedContent.content_data) {
       return {
-        id: sharedContent.restaurant.id,
+        id: sharedContent.content_data.id,
         type: 'restaurant' as const,
-        name: sharedContent.restaurant.name,
-        description: sharedContent.restaurant.description || '',
-        image: sharedContent.restaurant.image_url || '/placeholder.svg',
-        rating: sharedContent.restaurant.rating,
-        location: sharedContent.restaurant.location
+        name: sharedContent.content_data.name,
+        description: sharedContent.content_data.description || '',
+        image: sharedContent.content_data.cover_images?.[0] || sharedContent.content_data.images?.[0] || '/placeholder.svg',
+        rating: sharedContent.content_data.rating,
+        location: sharedContent.content_data.address
       };
     }
     return null;
@@ -77,19 +75,22 @@ export const SharedContentCard = ({
           {/* Image */}
           <div className="relative">
             <img
-              src={content.image_url || '/placeholder.svg'}
+              src={isFood 
+                ? (content.image_url || content.images?.[0] || '/placeholder.svg')
+                : (content.cover_images?.[0] || content.images?.[0] || '/placeholder.svg')
+              }
               alt={content.name}
               className="w-full h-48 object-cover rounded-t-lg"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder.svg';
               }}
             />
-            {isFood && sharedContent.food?.restaurant && (
+            {isFood && content.restaurant_name && (
               <Badge 
                 variant="secondary" 
                 className="absolute top-2 left-2 bg-white/90 text-gray-700"
               >
-                {sharedContent.food.restaurant.name}
+                {content.restaurant_name}
               </Badge>
             )}
             {showShareButton && (
@@ -99,7 +100,7 @@ export const SharedContentCard = ({
                 className="absolute top-2 right-2 bg-white/90 hover:bg-white"
                 onClick={handleShare}
               >
-                <Share2 className="w-4 h-4 text-gray-700" />
+                <Share2 className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -107,84 +108,92 @@ export const SharedContentCard = ({
           {/* Content */}
           <div className="p-4">
             <div className="flex items-start justify-between mb-2">
-              <h3 className="font-semibold text-lg text-gray-900 line-clamp-1">
-                {content.name}
-              </h3>
+              <h3 className="font-semibold text-lg leading-tight">{content.name}</h3>
               {content.rating && (
-                <div className="flex items-center space-x-1 ml-2">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm font-medium text-gray-700">
-                    {content.rating}
-                  </span>
+                <div className="flex items-center gap-1 ml-2">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-medium">{content.rating}</span>
                 </div>
               )}
             </div>
 
             {content.description && (
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                 {content.description}
               </p>
             )}
 
-            {/* Food-specific details */}
-            {isFood && sharedContent.food && (
-              <div className="space-y-2">
-                {sharedContent.food.price && (
-                  <div className="flex items-center space-x-1">
-                    <DollarSign className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-gray-900">
-                      ₹{sharedContent.food.price}
-                    </span>
-                  </div>
-                )}
-                {sharedContent.food.restaurant?.location && (
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 truncate">
-                      {sharedContent.food.restaurant.location}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Restaurant-specific details */}
-            {!isFood && sharedContent.restaurant && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  {sharedContent.restaurant.cuisine_type && (
+            <div className="space-y-2">
+              {/* Food specific info */}
+              {isFood && (
+                <>
+                  {content.price && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <DollarSign className="h-4 w-4" />
+                      <span>${content.price}</span>
+                    </div>
+                  )}
+                  {content.category && (
                     <Badge variant="outline" className="text-xs">
-                      {sharedContent.restaurant.cuisine_type}
+                      {content.category}
                     </Badge>
                   )}
-                  {sharedContent.restaurant.price_range && (
-                    <span className="text-sm font-medium text-gray-700">
-                      {sharedContent.restaurant.price_range}
-                    </span>
+                  {content.is_vegetarian && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      Vegetarian
+                    </Badge>
+                  )}
+                </>
+              )}
+
+              {/* Restaurant specific info */}
+              {!isFood && (
+                <>
+                  {content.cuisine && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="font-medium">Cuisine:</span>
+                      <span>{content.cuisine}</span>
+                    </div>
+                  )}
+                  {content.price_range && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <DollarSign className="h-4 w-4" />
+                      <span>{content.price_range}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Location */}
+              {(content.address || content.restaurant_name) && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">
+                    {content.address || content.restaurant_name}
+                  </span>
+                </div>
+              )}
+
+              {/* Tags */}
+              {content.tags && content.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {content.tags.slice(0, 3).map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {content.tags.length > 3 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{content.tags.length - 3} more
+                    </Badge>
                   )}
                 </div>
-                {sharedContent.restaurant.location && (
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 truncate">
-                      {sharedContent.restaurant.location}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Shared info */}
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-xs text-gray-500">
-                Shared {new Date(sharedContent.created_at).toLocaleDateString()}
-              </p>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Share Modal */}
       {shareModalOpen && (
         <ShareModal
           isOpen={shareModalOpen}

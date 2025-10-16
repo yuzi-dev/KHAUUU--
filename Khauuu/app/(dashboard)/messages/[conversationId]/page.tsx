@@ -324,9 +324,12 @@ const ConversationPage = () => {
                         item={{
                            id: message.shared_content.content_id,
                            name: message.shared_content.content_data?.name || 'Unknown',
-                           image: message.shared_content.content_data?.images?.[0] || message.shared_content.content_data?.cover_images?.[0] || '/placeholder.svg',
+                           image: message.shared_content.content_type === 'restaurant' 
+                             ? (message.shared_content.content_data?.cover_images?.[0] || message.shared_content.content_data?.images?.[0] || '/placeholder.svg')
+                             : (message.shared_content.content_data?.image_url || message.shared_content.content_data?.images?.[0] || '/placeholder.svg'),
                            description: message.shared_content.content_data?.description,
                            rating: message.shared_content.content_data?.rating,
+                           reviewCount: message.shared_content.content_data?.review_count,
                            price: message.shared_content.content_data?.price?.toString(),
                            location: message.shared_content.content_data?.address || message.shared_content.content_data?.restaurant_name,
                            cuisine: message.shared_content.content_data?.cuisine || message.shared_content.content_data?.restaurant_cuisine,

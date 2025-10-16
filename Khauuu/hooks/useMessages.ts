@@ -11,29 +11,38 @@ export interface SharedContent {
   content_type: 'food' | 'restaurant';
   content_id: string;
   shared_by: string;
+  share_message?: string;
   created_at: string;
-  food?: {
+  content_data?: {
     id: string;
     name: string;
     description?: string;
-    image_url?: string;
     price?: number;
-    rating?: number;
-    restaurant?: {
-      id: string;
-      name: string;
-      location?: string;
-    };
-  };
-  restaurant?: {
-    id: string;
-    name: string;
-    description?: string;
+    category?: string;
     image_url?: string;
-    cuisine_type?: string;
+    images?: string[];
+    cover_images?: string[];
     rating?: number;
-    location?: string;
+    review_count?: number;
+    is_vegetarian?: boolean;
+    is_featured?: boolean;
+    tags?: string[];
+    restaurant_name?: string;
+    restaurant_cuisine?: string;
+    restaurant_rating?: number;
+    cuisine?: string;
+    address?: string;
+    phone?: string;
     price_range?: string;
+    features?: any;
+    opening_hours?: any;
+    is_open?: boolean;
+  };
+  sharer_info?: {
+    user_id: string;
+    username: string;
+    full_name: string;
+    profile_image_url?: string;
   };
 }
 
