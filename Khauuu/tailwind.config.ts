@@ -118,6 +118,14 @@ export default {
             transform: "translateY(-10px)",
           },
         },
+        "shimmer": {
+          "0%": {
+            "background-position": "-200% 0",
+          },
+          "100%": {
+            "background-position": "200% 0",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -125,6 +133,7 @@ export default {
         "fade-in": "fade-in 0.6s ease-out",
         "slide-up": "slide-up 0.6s ease-out",
         "bounce-gentle": "bounce-gentle 2s infinite",
+        "shimmer": "shimmer 2s infinite linear",
       },
       backgroundImage: {
         "gradient-hero": "var(--gradient-hero)",

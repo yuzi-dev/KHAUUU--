@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ably, MESSAGING_CHANNELS, MESSAGING_EVENTS } from '@/lib/ably';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,6 +91,22 @@ export const useMessages = () => {
   const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Use refs to track state without causing re-renders
+  const messagesRef = useRef<Message[]>([]);
+  const activeConversationRef = useRef<string | null>(null);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -119,37 +135,92 @@ export const useMessages = () => {
     }
   }, [user]);
 
-  // Fetch messages for a conversation
-  const fetchMessages = useCallback(async (conversationId: string) => {
+  // Fetch messages for a conversation with pagination
+  const fetchMessages = useCallback(async (conversationId: string, page = 1, limit = 20) => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      // Set appropriate loading state based on page
+      if (page === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
+      if (!session?.access_token) {
+        throw new Error('No valid session');
+      }
 
-      const response = await fetch(`/api/messages?conversationId=${conversationId}`, {
+      const response = await fetch(`/api/messages?conversationId=${conversationId}&page=${page}&limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.messages?.sort((a: Message, b: Message) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        ) || []);
-        
-        // Mark messages as read
-        await markAsRead(conversationId);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      const newMessages = data.messages?.sort((a: Message, b: Message) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ) || [];
+      
+      if (page === 1) {
+        // First page - replace all messages
+        setMessages(newMessages);
+        setCurrentPage(1);
+      } else {
+        // Subsequent pages - prepend to existing messages
+        setMessages(prev => {
+          const existingIds = new Set(prev.map((m: Message) => m.id));
+          const uniqueNewMessages = newMessages.filter((m: Message) => !existingIds.has(m.id));
+          return [...uniqueNewMessages, ...prev].sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+        setCurrentPage(page);
+      }
+      
+      setHasMoreMessages(data.hasMore || false);
+      
+      // Mark messages as read
+      await markAsRead(conversationId);
+      
+      return {
+        messages: newMessages,
+        hasMore: data.hasMore || false,
+        totalCount: data.totalCount || 0
+      };
     } catch (error) {
       console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+      // Only show toast error for user-initiated actions (page 1)
+      if (page === 1) {
+        toast.error('Failed to load messages');
+      }
+      // Reset messages on error for first page to prevent infinite loading
+      if (page === 1) {
+        setMessages([]);
+        setHasMoreMessages(false);
+      }
     } finally {
-      setLoading(false);
+      if (page === 1) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   }, [user]);
+
+  // Load more messages for infinite scroll
+  const loadMoreMessages = useCallback(async () => {
+    if (!activeConversation || loadingMore || !hasMoreMessages) return;
+    
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    await fetchMessages(activeConversation, nextPage);
+  }, [activeConversation, loadingMore, hasMoreMessages, currentPage, fetchMessages]);
 
   // Update conversations locally without triggering loading state
   const updateConversationsLocally = useCallback((messageOrData: any) => {
@@ -322,7 +393,7 @@ export const useMessages = () => {
     return () => {
       userChannel.unsubscribe();
     };
-  }, [user, activeConversation, fetchConversations]);
+  }, [user, activeConversation, updateConversationsLocally]);
 
   // Set up conversation-specific real-time subscriptions
   useEffect(() => {
@@ -357,22 +428,96 @@ export const useMessages = () => {
     };
   }, [activeConversation]);
 
-  // Load conversations on mount
+  // Load conversations on mount - only once when user is available
   useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+    let isMounted = true;
+    
+    const loadConversations = async () => {
+      if (!user || conversations.length > 0) return; // Don't reload if we already have conversations
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch('/api/messages/conversations', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          setConversations(data.conversations || []);
+        }
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+      }
+    };
+
+    loadConversations();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user]); // Only depend on user, not fetchConversations
 
   // Load messages when active conversation changes
   useEffect(() => {
-    if (activeConversation) {
-      fetchMessages(activeConversation);
-    } else {
-      setMessages([]);
-    }
-  }, [activeConversation, fetchMessages]);
+    let isMounted = true;
+    
+    const loadMessages = async () => {
+      if (!activeConversation) {
+        setMessages([]);
+        setHasMoreMessages(true);
+        setCurrentPage(1);
+        return;
+      }
+      
+      // Only fetch messages if we don't have any messages for this conversation
+      // This prevents unnecessary reloading when returning to the page
+      if (messagesRef.current.length === 0) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) return;
 
-  // Remove automatic refetching on visibility change to prevent unwanted refreshes
-  // This was causing the app to refresh when switching between applications
+          setLoading(true);
+          const response = await fetch(`/api/messages?conversationId=${activeConversation}&page=1&limit=20`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const newMessages = data.messages?.sort((a: Message, b: Message) => 
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            ) || [];
+            
+            if (isMounted) {
+              setMessages(newMessages);
+              setHasMoreMessages(data.hasMore || false);
+              setCurrentPage(1);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading messages:', error);
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      }
+    };
+
+    loadMessages();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [activeConversation]); // Removed fetchMessages and messages.length dependencies to prevent unnecessary re-renders
+
+  // Note: Removed visibility change handler to prevent unnecessary reloads when switching tabs/apps
+  // Real-time updates via Ably subscriptions handle new messages automatically
 
   return {
     conversations,
@@ -381,9 +526,12 @@ export const useMessages = () => {
     setActiveConversation,
     loading,
     sending,
+    loadingMore,
+    hasMoreMessages,
     sendMessage,
     startConversation,
     fetchConversations,
     fetchMessages,
+    loadMoreMessages,
   };
 };

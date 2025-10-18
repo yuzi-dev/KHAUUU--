@@ -106,7 +106,13 @@ const Navbar = () => {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => router.push('/messages')}
+              onClick={() => {
+                if (!user) {
+                  router.push('/login');
+                } else {
+                  router.push('/messages');
+                }
+              }}
               className="relative"
             >
               <MessageCircle className="w-4 h-4" />
@@ -185,7 +191,13 @@ const Navbar = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => router.push('/messages')}
+                  onClick={() => {
+                    if (!user) {
+                      router.push('/login');
+                    } else {
+                      router.push('/messages');
+                    }
+                  }}
                   className="relative justify-start"
                 >
                   <MessageCircle className="w-4 h-4" />

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Star, Clock, Heart, TrendingUp, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ShareModal from "@/components/modals/share-modal";
+import { PopularFoodsSkeleton } from "@/components/loading/restaurant-skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { foodService } from "@/lib/services";
 
@@ -20,37 +21,147 @@ const PopularFoodsSection = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchPopularFoods = async () => {
+      if (!isMounted) return;
+      
       try {
         setLoading(true);
         const foods = await foodService.getPopular();
         
-        // Only show foods from database if they exist and are featured
-        if (foods && foods.length > 0) {
-          setPopularFoods(foods);
+        if (!isMounted) return;
+        
+        if (!foods || foods.length === 0) {
+          // Use fallback data if database is empty
+          const fallbackFoods = [
+            {
+              id: "fallback-food-1",
+              name: "Dal Bhat",
+              image_url: "/assets/dal-bhat.jpg",
+              description: "Traditional Nepali meal with lentils, rice, and vegetables",
+              price: 250,
+              restaurant: {
+                id: "rest-1",
+                name: "Himalayan Delights",
+                rating: 4.8
+              }
+            },
+            {
+              id: "fallback-food-2",
+              name: "Chicken Momos",
+              image_url: "/assets/momos.jpg",
+              description: "Steamed chicken dumplings served with spicy sauce",
+              price: 180,
+              restaurant: {
+                id: "rest-2",
+                name: "Momo Palace",
+                rating: 4.6
+              }
+            },
+            {
+              id: "fallback-food-3",
+              name: "Newari Khaja Set",
+              image_url: "/assets/restaurant-interior.jpg",
+              description: "Traditional Newari feast with multiple authentic dishes",
+              price: 450,
+              restaurant: {
+                id: "rest-3",
+                name: "Heritage Kitchen",
+                rating: 4.9
+              }
+            },
+            {
+              id: "fallback-food-4",
+              name: "Thukpa",
+              image_url: "/assets/dal-bhat.jpg",
+              description: "Hearty Tibetan noodle soup with vegetables and meat",
+              price: 220,
+              restaurant: {
+                id: "rest-4",
+                name: "Mountain View Cafe",
+                rating: 4.5
+              }
+            }
+          ];
+          setPopularFoods(fallbackFoods);
         } else {
-          // No featured foods found, show empty state or message
-          setPopularFoods([]);
-          toast({
-            title: "No Featured Foods",
-            description: "No featured foods available at the moment",
-          });
+          setPopularFoods(foods);
         }
       } catch (error) {
         console.error('Error fetching popular foods:', error);
-        // Show empty state on error
-        setPopularFoods([]);
+        
+        if (!isMounted) return;
+        
+        // Use fallback data on error
+        const fallbackFoods = [
+          {
+            id: "fallback-food-1",
+            name: "Dal Bhat",
+            image_url: "/assets/dal-bhat.jpg",
+            description: "Traditional Nepali meal with lentils, rice, and vegetables",
+            price: 250,
+            restaurant: {
+              id: "rest-1",
+              name: "Himalayan Delights",
+              rating: 4.8
+            }
+          },
+          {
+            id: "fallback-food-2",
+            name: "Chicken Momos",
+            image_url: "/assets/momos.jpg",
+            description: "Steamed chicken dumplings served with spicy sauce",
+            price: 180,
+            restaurant: {
+              id: "rest-2",
+              name: "Momo Palace",
+              rating: 4.6
+            }
+          },
+          {
+            id: "fallback-food-3",
+            name: "Newari Khaja Set",
+            image_url: "/assets/restaurant-interior.jpg",
+            description: "Traditional Newari feast with multiple authentic dishes",
+            price: 450,
+            restaurant: {
+              id: "rest-3",
+              name: "Heritage Kitchen",
+              rating: 4.9
+            }
+          },
+          {
+            id: "fallback-food-4",
+            name: "Thukpa",
+            image_url: "/assets/dal-bhat.jpg",
+            description: "Hearty Tibetan noodle soup with vegetables and meat",
+            price: 220,
+            restaurant: {
+              id: "rest-4",
+              name: "Mountain View Cafe",
+              rating: 4.5
+            }
+          }
+        ];
+        setPopularFoods(fallbackFoods);
         toast({
-          title: "Error Loading Foods",
-          description: "Unable to load featured foods at the moment",
+          title: "Using Sample Data",
+          description: "Showing sample content while database is being set up",
         });
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPopularFoods();
-  }, [toast]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Remove toast from dependency array to prevent unnecessary re-renders
 
   // Helper function to format review count
   const formatReviewCount = (count: number) => {
@@ -115,28 +226,7 @@ const PopularFoodsSection = () => {
   };
 
   if (loading) {
-    return (
-      <section className="py-16 bg-gradient-to-br from-warm-cream to-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Popular Nepali Foods</h2>
-            <p className="text-lg text-muted-foreground">Discover the most loved dishes in Nepali cuisine</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <div className="h-56 bg-gray-300 rounded-t-lg"></div>
-                <CardContent className="p-6">
-                  <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded mb-4"></div>
-                  <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
+    return <PopularFoodsSkeleton />;
   }
 
   return (

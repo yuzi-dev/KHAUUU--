@@ -24,7 +24,7 @@ interface MessagesLayoutProps {
 const MessagesLayout = ({ children }: MessagesLayoutProps) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isUserOnline } = useOnlineStatus();
   const {
     conversations,
@@ -35,6 +35,27 @@ const MessagesLayout = ({ children }: MessagesLayoutProps) => {
   const [showMessageRequests, setShowMessageRequests] = useState(false);
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
 
   // Get active conversation ID from URL
   const activeConversationId = pathname.split('/messages/')[1] || null;

@@ -4,6 +4,7 @@ import RestaurantCard from "./restaurant-card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Heart, Send } from "lucide-react";
 import ShareModal from "@/components/modals/share-modal";
+import { FeaturedSectionSkeleton } from "@/components/loading/restaurant-skeleton";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { restaurantService, foodService } from "@/lib/services";
@@ -18,13 +19,19 @@ const FeaturedSection = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchData = async () => {
+      if (!isMounted) return;
+      
       try {
         setLoading(true);
         const [restaurants, dishes] = await Promise.all([
           restaurantService.getFeatured(),
           foodService.getPopular()
         ]);
+        
+        if (!isMounted) return;
         
         // Use fallback data if database is empty
         if (!restaurants || restaurants.length === 0) {
@@ -130,6 +137,9 @@ const FeaturedSection = () => {
         }
       } catch (error) {
         console.error('Error fetching featured data:', error);
+        
+        if (!isMounted) return;
+        
         // Use fallback data on error
         const fallbackRestaurants = [
           {
@@ -216,12 +226,18 @@ const FeaturedSection = () => {
           description: "Showing sample content while database is being set up",
         });
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
-  }, [toast]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Remove toast from dependency array to prevent unnecessary re-renders
 
   const handleSaveDish = (dishId: string) => {
     setSavedDishes(prev => {
@@ -262,49 +278,7 @@ const FeaturedSection = () => {
   };
 
   if (loading) {
-    return (
-      <section className="py-16 bg-warm-cream">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Featured Restaurants Loading */}
-          <div className="mb-16">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl font-bold text-foreground mb-2">Featured Restaurants</h2>
-                <p className="text-muted-foreground">Discover the best local favorites in your area</p>
-              </div>
-              <Button variant="hero">
-                View All
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-48 bg-gray-300 rounded-lg mb-4"></div>
-                  <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded w-2/3"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Popular Dishes Loading */}
-          <div>
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-2">Popular Nepali Dishes</h2>
-              <p className="text-muted-foreground">Explore authentic flavors loved by locals</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-48 bg-gray-300 rounded-xl"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    );
+    return <FeaturedSectionSkeleton />;
   }
 
   return (

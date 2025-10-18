@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MessageSkeleton } from "@/components/loading/message-skeleton";
 import { useMessages } from "@/hooks/useMessages";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -38,7 +40,10 @@ const ConversationPage = () => {
     setActiveConversation,
     loading,
     sending,
+    loadingMore,
+    hasMoreMessages,
     sendMessage,
+    loadMoreMessages,
   } = useMessages();
 
   const [messageText, setMessageText] = useState("");
@@ -69,8 +74,19 @@ const ConversationPage = () => {
       
       if (isInitialLoad && container) {
         // Always scroll to bottom on initial load using scrollTop
-        setTimeout(() => {
+        // Use multiple attempts to ensure scroll happens
+        const scrollToBottom = () => {
           container.scrollTop = container.scrollHeight;
+        };
+        
+        // Immediate scroll
+        scrollToBottom();
+        
+        // Delayed scrolls to handle dynamic content loading
+        requestAnimationFrame(scrollToBottom);
+        setTimeout(scrollToBottom, 50);
+        setTimeout(() => {
+          scrollToBottom();
           setIsInitialLoad(false);
         }, 200);
       } else if (container && messagesEndRef.current) {
@@ -78,15 +94,59 @@ const ConversationPage = () => {
         const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
         
         if (isNearBottom) {
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             container.scrollTop = container.scrollHeight;
-          }, 50);
+          });
         }
       }
     }
-  }, [messages.length, isInitialLoad]); // Depend on message count and initial load state
+  }, [messages, isInitialLoad]); // Depend on messages array directly for better reactivity
 
-  // Auto-mark messages as read when they become visible
+  // Additional effect to ensure scroll to bottom on conversation change and reload
+  useEffect(() => {
+    if (messages.length > 0 && activeConversation) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        // Force scroll to bottom when conversation changes or on reload
+        const scrollToBottom = () => {
+          container.scrollTop = container.scrollHeight;
+        };
+        
+        // Multiple scroll attempts to handle all scenarios
+        scrollToBottom();
+        requestAnimationFrame(scrollToBottom);
+        setTimeout(scrollToBottom, 100);
+        setTimeout(scrollToBottom, 300);
+      }
+    }
+  }, [activeConversation, messages.length]); // Trigger on conversation change and message count change
+
+  // Handle infinite scroll
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Check if user scrolled to the top
+      if (container.scrollTop === 0 && hasMoreMessages && !loadingMore) {
+        const previousScrollHeight = container.scrollHeight;
+        
+        loadMoreMessages().then(() => {
+          // Maintain scroll position after loading more messages
+          setTimeout(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - previousScrollHeight;
+          }, 100);
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [hasMoreMessages, loadingMore, loadMoreMessages]);
   useEffect(() => {
     if (!activeConversation || !messagesContainerRef.current || messages.length === 0) return;
 
@@ -198,6 +258,45 @@ const ConversationPage = () => {
 
   // Find the current conversation
   const currentConversation = conversations.find(c => c.id === conversationId);
+
+  // Show loading state while messages are being fetched
+  if (loading || !currentConversation) {
+    return (
+      <div className="flex flex-col h-screen bg-gray-50">
+        {/* Header Skeleton */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Messages Skeleton */}
+        <div className="flex-1 overflow-hidden">
+          <MessageSkeleton />
+        </div>
+        
+        {/* Input Skeleton */}
+        <div className="bg-white border-t px-6 py-4">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-10 flex-1" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
   const otherParticipant = currentConversation ? getOtherParticipant(currentConversation) : null;
 
   // If conversation doesn't exist, show error
@@ -280,6 +379,13 @@ const ConversationPage = () => {
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-4"
       >
+        {/* Loading indicator for infinite scroll */}
+        {loadingMore && (
+          <div className="flex justify-center py-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          </div>
+        )}
+        
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
